@@ -65,13 +65,106 @@ def login_user():
     user = cursor.fetchone()#چک کردن وجود کاربر با (query string WHERE)
     if user:
         messagebox.showinfo("ورود موفق", f"خوش آمدید {username}!")
-
+        open_quiz_window(username)
     else:
         messagebox.showerror("خطا", "نام کاربری یا رمز اشتباه است.")
 
+#   TKINTER
+# پنجره سوالات
+def open_quiz_window(username):
+    quiz_window = tk.Toplevel(root)
 
-#    TKINTER
-#    جدول ساخت کاربر جدید
+    quiz_window.title(f"سوالات پایتون و هوش مصنوعی ({username})")
+    quiz_window.geometry("600x550") #  فیلد افزودن سوال
+
+    # نمایش سوالات موجود
+    ttk.Label(quiz_window, text="لیست سوالات موجود:", font=("Tahoma", 12, "bold")).pack(pady=5)
+
+    listbox_frame = ttk.Frame(quiz_window)
+    listbox_frame.pack(pady=5, fill='both', expand=True)
+
+    listbox = tk.Listbox(listbox_frame, width=70, height=8)
+    listbox.pack(side=tk.LEFT, fill='both', expand=True)
+
+    scrollbar = ttk.Scrollbar(listbox_frame)
+    scrollbar.pack(side=tk.RIGHT, fill='y')
+    listbox.config(yscrollcommand=scrollbar.set)
+    scrollbar.config(command=listbox.yview)
+
+    # بارگذاری سوالات از دیتابیس
+    def load_questions():
+        listbox.delete(0, tk.END) # پاک کردن لیست فعلی
+        cursor.execute("SELECT id, question FROM questions")
+        records = cursor.fetchall()
+        for r in records:
+            listbox.insert(tk.END, f"{r[0]}. {r[1]}")
+
+    load_questions() # بارگذاری اولیه
+
+    answer_box = scrolledtext.ScrolledText(quiz_window, wrap=tk.WORD, height=7)
+    answer_box.pack(pady=5, fill='x', padx=10)
+    answer_box.insert(tk.END, "برای مشاهده پاسخ، یک سؤال را انتخاب کنید و دکمه 'نمایش پاسخ' را بزنید.")
+    answer_box.config(state='disabled')
+
+    def show_answer():
+        selection_index = listbox.curselection()
+        if not selection_index:
+            messagebox.showwarning("خطا", "هیچ سؤالی انتخاب نشده است.")
+            return
+        selected_item = listbox.get(selection_index[0])
+        question_id = int(selected_item.split('.')[0])
+        cursor.execute("SELECT answer FROM questions WHERE id=?", (question_id,))
+        answer_data = cursor.fetchone()
+        if answer_data:
+            answer = answer_data[0]
+            answer_box.config(state='normal')
+            answer_box.delete("1.0", tk.END)
+            answer_box.insert(tk.END, f"پاسخ:\n{answer}")
+            answer_box.config(state='disabled')
+        else:
+            messagebox.showerror("خطا", "پاسخ برای این سؤال یافت نشد.")
+
+    ttk.Button(quiz_window, text="نمایش پاسخ", command=show_answer,style="Accent.TButton").pack(pady=2)
+
+    #اضافه کردن سوال جدید
+    ttk.Label(quiz_window, text="افزودن سؤال جدید:", font=("Tahoma", 11, "bold")).pack(pady=5)
+
+    new_question_frame = ttk.Frame(quiz_window)
+    new_question_frame.pack(pady=5, fill='x', padx=10)
+
+    ttk.Label(new_question_frame, text="سؤال:").pack(side=tk.LEFT)
+    entry_new_question = ttk.Entry(new_question_frame, width=50)
+    entry_new_question.pack(side=tk.LEFT, padx=5)
+
+    new_answer_frame = ttk.Frame(quiz_window)
+    new_answer_frame.pack(pady=5, fill='x', padx=10)
+
+    ttk.Label(new_answer_frame, text="پاسخ:").pack(side=tk.LEFT)
+    entry_new_answer = ttk.Entry(new_answer_frame, width=50)
+    entry_new_answer.pack(side=tk.LEFT, padx=5)
+
+    def add_new_question():
+        question_text = entry_new_question.get().strip()
+        answer_text = entry_new_answer.get().strip()
+
+        if not question_text or not answer_text:
+            messagebox.showwarning("خطا", "لطفاً هم سؤال و هم پاسخ را وارد کنید.")
+            return
+
+        try:
+            cursor.execute("INSERT INTO questions (question, answer) VALUES (?, ?)", (question_text, answer_text))
+            conn.commit()
+            messagebox.showinfo("موفق", "سؤال با موفقیت اضافه شد!")
+            entry_new_question.delete(0, tk.END)
+            entry_new_answer.delete(0, tk.END)
+            load_questions() # به‌روزرسانی لیست سوالات
+        except Exception as e:
+            messagebox.showerror("خطا", f"خطا در افزودن سؤال: {e}")
+
+    ttk.Button(quiz_window, text="افزودن سؤال", command=add_new_question,style="Accent.TButton").pack(pady=10)
+
+
+# جدول ساخت کاربر جدید
 def open_signup():
     global signup_window, entry_username_signup, entry_password_signup
     signup_window = tk.Toplevel(root)
@@ -86,7 +179,7 @@ def open_signup():
     entry_password_signup.pack()
 
 
-    ttk.Button(signup_window, text="ثبت‌ نام", command=register_user,style="Accent.TButton").pack(pady=10)
+    ttk.Button(signup_window, text="ثبت‌نام", command=register_user,style="Accent.TButton").pack(pady=10)
 
 #جدول ورود کاربر
 root =tk.Tk()
